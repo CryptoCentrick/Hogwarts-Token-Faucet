@@ -7,8 +7,6 @@ This repo has two parts:
 - `Token Faucet/` — the **Solidity smart contract** (built with **Foundry**) that creates the token and enforces the faucet rules.
 - `Front End/` — the **React + TypeScript** website where you connect MetaMask and use the faucet.
 
-If you’re around 15 years old: imagine the blockchain like a shared class notebook that nobody can erase. A smart contract is a page in that notebook with rules written in permanent ink.
-
 ---
 
 ## What you can do
