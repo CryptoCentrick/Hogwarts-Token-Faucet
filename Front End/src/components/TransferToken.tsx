@@ -55,9 +55,9 @@ export function TransferToken({ signer, onSuccess }: TransferTokenProps) {
           <p className="hf-txStatus hf-txStatus--success">
             ✓ Transfer successful
           </p>
-          
-            <a
-            href={`https://sepolia.etherscan.io/tx/${txHash}`}
+
+          <a
+            href={`https://sepolia-blockscout.lisk.com/tx/${txHash}`}
             target="_blank"
             rel="noreferrer"
             className="hf-link"

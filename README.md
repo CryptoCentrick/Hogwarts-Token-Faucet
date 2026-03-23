@@ -5,16 +5,19 @@ An **ERC-20 token + faucet** project you can use to practise Web3 basics without
 This repo has two parts:
 
 - `Token Faucet/` — the **Solidity smart contract** (built with **Foundry**) that creates the token and enforces the faucet rules.
-- `Front End/` — the **React + TypeScript** website where you connect MetaMask and use the faucet.
+- `Front End/` — the **React + TypeScript** website where you connect a wallet (via a modal) and use the faucet.
+
+Right now, the front end is configured for **Lisk Sepolia Testnet** (chain id `4202`) using **Blockscout** as the explorer.
 
 ---
 
 ## What you can do
 
-- **Connect your wallet** (MetaMask) from the top-right corner of the site
+- **Connect your wallet** using a “Connect Wallet” modal
+- **Browse pages** in the app: Home / Faucet / Portfolio / (Admin if you’re the owner)
 - **See token details** (name, symbol, supply, your balance)
-- **Claim tokens from the faucet** (limited by a cooldown so nobody can spam it)
-- **Transfer tokens** to a friend
+- **Claim tokens** from the faucet (limited by a cooldown so nobody can spam it)
+- **Transfer tokens** to another address
 - **Mint tokens (owner only)** for testing/admin purposes
 
 ---
@@ -28,13 +31,13 @@ You (Browser UI)
    ▼
 Front End (React + ethers.js)
    │
-   │ 2) ethers.js asks MetaMask to sign a transaction
+   │ 2) ethers.js asks your wallet to sign a transaction
    ▼
-MetaMask (your wallet)
+Wallet (via AppKit)
    │
-   │ 3) transaction goes to the Sepolia test network
+   │ 3) transaction goes to an EVM testnet (currently Lisk Sepolia)
    ▼
-Sepolia (test Ethereum)
+Blockchain (testnet)
    │
    │ 4) runs the smart contract code
    ▼
@@ -55,15 +58,48 @@ Two important words you’ll see a lot:
 - `Token Faucet/src/FaucetToken.sol` — the ERC-20 + faucet logic
 - `Token Faucet/script/FaucetToken.s.sol` — deploy script (creates a new contract)
 - `Token Faucet/test/FaucetToken.t.sol` — tests for faucet rules and minting
-- `Token Faucet/foundry.toml` — Foundry config (Sepolia RPC + Etherscan key via env vars)
+- `Token Faucet/foundry.toml` — Foundry config (RPC endpoint + explorer verification key via env vars)
+- `Token Faucet/.env` — local environment variables (gitignored)
 
 ### Front end (React)
 
-- `Front End/src/App.tsx` — the page layout (“Hogwarts Token Faucet” UI)
-- `Front End/src/constants/address.ts` — the contract address the UI talks to
+- `Front End/src/main.tsx` — bootstraps the app + configures the wallet modal (AppKit) + networks
+- `Front End/src/App.tsx` — the app UI (Home/Faucet/Portfolio/Admin pages)
+- `Front End/src/constants/address.ts` — the contract address + display name/symbol used by the UI
 - `Front End/src/constants/abi.ts` — the contract ABI (how the UI knows what functions exist)
 - `Front End/src/hooks/*` — reusable logic for reading/writing to the contract
-- `Front End/src/components/*` — UI building blocks (TokenInfo, Faucet button, Transfer, etc.)
+- `Front End/src/components/*` — UI building blocks (some are used by `App.tsx`, others are reusable/optional)
+
+---
+
+## Configuration you’ll probably edit
+
+### 1) Contract address + UI name
+
+In `Front End/src/constants/address.ts`:
+
+- `FAUCET_TOKEN_ADDRESS` — the deployed contract address your UI talks to
+- `TOKEN_DISPLAY_NAME` — the title shown in the app header
+- `TOKEN_DISPLAY_SYMBOL` — the “pretty” symbol shown in UI labels
+
+Important: the contract’s **real** symbol is read from-chain (`contract.symbol()`), but some UI text uses `TOKEN_DISPLAY_SYMBOL`. Keep them in sync if you don’t want confusion.
+
+### 2) Wallet modal project id (AppKit / Reown)
+
+In `Front End/src/main.tsx` there is a `projectId`.
+
+- Replace it with your own from `https://cloud.reown.com`
+- If you leave it wrong/blank, the wallet modal may not work properly
+
+### 3) Network (currently Lisk Sepolia)
+
+Also in `Front End/src/main.tsx` the app defines a custom network:
+
+- Chain id: `4202`
+- RPC: `https://rpc.sepolia-api.lisk.com`
+- Explorer: `https://sepolia-blockscout.lisk.com`
+
+If you deploy your contract to a different chain, update the network config and the contract address.
 
 ---
 
@@ -120,18 +156,18 @@ The contract hard-codes these rules as constants:
 ### Prerequisites
 
 - Foundry installed (`forge`, `cast`, `anvil`)
-- A Sepolia RPC URL (Alchemy/Infura/etc.)
+- An RPC URL for your target EVM network (example: Lisk Sepolia RPC)
 - A wallet **private key** (test wallet only!)
 
 ### Environment variables (very important)
 
 In `Token Faucet/.env` you’ll typically set:
 
-- `SEPOLIA_RPC_URL`
+- `SEPOLIA_RPC_URL` (this is just the name — you can point it to any EVM RPC you’re deploying to)
 - `PRIVATE_KEY`
-- `ETHERSCAN_API_KEY` (optional, only for verification)
+- `ETHERSCAN_API_KEY` (optional, only for verification; may differ depending on explorer)
 
-> Security note: **never** share or commit real private keys. Use a fresh test wallet. If you accidentally exposed a key, rotate it immediately.
+> Security note: **never** share or commit real private keys. Use a fresh test wallet. (`Token Faucet/.gitignore` already ignores `.env`.)
 
 ### Build / test
 
@@ -143,7 +179,7 @@ forge build
 forge test
 ```
 
-### Deploy to Sepolia
+### Deploy (to your configured network)
 
 This project includes a deploy script:
 
@@ -156,7 +192,7 @@ cd "Token Faucet"
 forge script script/FaucetToken.s.sol:FaucetTokenScript --rpc-url $env:SEPOLIA_RPC_URL --private-key $env:PRIVATE_KEY --broadcast
 ```
 
-If you want automatic verification and you have an Etherscan API key configured, you can add `--verify` as well.
+If you want automatic verification and you have an explorer API key configured, you can add `--verify` as well (you may need to adjust `Token Faucet/foundry.toml` depending on the explorer).
 
 ---
 
@@ -165,8 +201,8 @@ If you want automatic verification and you have an Etherscan API key configured,
 ### Prerequisites
 
 - Node.js + npm installed
-- MetaMask installed in your browser
-- Sepolia ETH (for gas) in your test wallet
+- A wallet (MetaMask is fine) with test ETH for gas
+- Lisk Sepolia is the default network in the front end config
 
 ### Point the UI at your deployed contract
 
@@ -188,56 +224,63 @@ Open the local URL Vite prints (usually `http://localhost:5173`).
 
 ---
 
-## Front end walkthrough (what each card does)
+## Front end walkthrough (pages)
 
-### Connect wallet (top-right)
+The UI is a single-page React app with simple in-app navigation inside `Front End/src/App.tsx`.
 
-Uses `Front End/src/hooks/useWallet.ts` to:
+### Home
 
-- detect MetaMask (`window.ethereum`)
-- request accounts
-- create an ethers **provider** + **signer**
+- Shows the faucet name and a quick explanation
+- Lets you connect your wallet
+- Has buttons to jump to Faucet and Portfolio
 
-### Token Info
+### Faucet
 
-Reads:
+- Calls `requestToken()` to claim tokens
+- Uses `getRemainingCooldown(address)` to show a countdown timer
+- Shows a transaction link on Blockscout after success
 
-- name / symbol / decimals
-- total supply / max supply
-- your wallet balance (if connected)
+### Portfolio
 
-### Faucet (Claim Tokens)
+- Shows your wallet balance and basic supply stats
+- Includes a transfer form that calls ERC-20 `transfer(to, amount)`
+- Shows a transaction link on Blockscout after success
 
-Calls:
+### Admin (owner only)
 
-- `requestToken()` to claim
-- `getRemainingCooldown(address)` to show the cooldown timer
+- Only appears if your connected wallet matches `owner()` from the contract
+- Lets the owner call `mint(to, amount)` (still capped by `MAX_SUPPLY`)
+- Shows a transaction link on Blockscout after success
 
-### Transfer
+---
 
-Calls ERC-20 `transfer(to, amount)` from your connected wallet.
+## How wallet connection works (front end)
 
-### Mint (Owner only)
+The project uses **Reown AppKit** (wallet modal) with the **ethers adapter**.
 
-Only shows up when the connected wallet address matches the contract `owner()`.
+- `Front End/src/main.tsx` creates the AppKit instance and declares the network(s).
+- `Front End/src/hooks/useWallet.ts` exposes `address/isConnected/provider/signer` plus `connect()` and `disconnect()`.
+
+That `signer` is what the faucet/transfer/mint code uses to send transactions.
 
 ---
 
 ## Troubleshooting (common “why isn’t it working?”)
 
-- **“MetaMask not detected”**
-  - Install MetaMask, or open the site in a browser where MetaMask is enabled.
+- **Wallet modal won’t open / connect**
+  - Check the `projectId` in `Front End/src/main.tsx` and replace it with your own from Reown.
 
-- **Buttons are disabled**
-  - You probably aren’t connected. Click **Connect Wallet** first.
+- **Connected, but transactions fail**
+  - Make sure you’re on the same network the app is configured for (default: Lisk Sepolia `4202`).
+  - Make sure you have test ETH for gas.
 
-- **Wrong network warning**
-  - Switch MetaMask to **Sepolia**.
-
-- **Transaction fails with cooldown**
+- **Cooldown error**
   - The contract enforces a strict 24-hour timer between claims.
 
-- **Transaction fails with max supply**
+- **Admin page missing**
+  - Only the contract owner can see/use Admin minting. Ownership is checked on-chain using `owner()`.
+
+- **Max supply reached**
   - The contract refuses any mint/claim that would exceed `MAX_SUPPLY`.
 
 - **UI shows weird data**
@@ -251,7 +294,7 @@ Only shows up when the connected wallet address matches the contract `owner()`.
 - **Private key**: your secret password (never share).
 - **Transaction**: a signed message that changes blockchain state (costs gas).
 - **Gas**: the network fee you pay to run contract code.
-- **Testnet (Sepolia)**: a practice network that uses fake ETH and fake tokens.
+- **Testnet**: a practice network that uses fake ETH and fake tokens.
 - **ABI**: the “menu” of contract functions so the front end knows what it can call.
 
 ---
@@ -261,4 +304,3 @@ Only shows up when the connected wallet address matches the contract `owner()`.
 - Use test wallets for learning projects.
 - Don’t paste private keys into random websites or share them in screenshots.
 - Always double-check the contract address before signing transactions.
-
